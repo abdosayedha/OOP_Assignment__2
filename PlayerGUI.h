@@ -1,43 +1,47 @@
 #pragma once
 #include <JuceHeader.h>
+#include "PlayerAudio.h"
 
-class PlayerAudio : public juce::AudioSource
+class PlayerGUI : public juce::Component,
+    public juce::Button::Listener,
+    public juce::Slider::Listener,
+    public juce::Timer
 {
 public:
-    PlayerAudio();
-    ~PlayerAudio() override;
+    PlayerGUI(); // constructor عادي
+    PlayerGUI(PlayerAudio& externalPlayer); // constructor بياخد reference لو حبيت تستخدم player خارجي
 
-    void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-    void releaseResources() override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+    void paint(juce::Graphics&) override;
+    void resized() override;
 
-    void loadFile(const juce::File& file);
-    void start();
-    void stop();
-    void restart();
-    void toggleMute();
-    void toggleLoop();
-    void setVolume(float newVolume);
-    void setSpeed(float newSpeed);
-    bool isPlaying() const;
-    bool isLooping() const;
-
-    double getCurrentPosition() const;
-    double getLengthInSeconds() const;
-    void setPositionRelative(double pos);
-    double getPositionRelative() const;
-
-    double getPosition() const;
-    double getLength() const;
+    void buttonClicked(juce::Button* button) override;
+    void sliderValueChanged(juce::Slider* slider) override;
+    void timerCallback() override;
 
 private:
-    juce::AudioFormatManager formatManager;
-    std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
-    juce::AudioTransportSource transportSource;
-    std::unique_ptr<juce::ResamplingAudioSource> resamplingSource;
+    PlayerAudio localPlayer;       // لو مش هتستخدم external
+    PlayerAudio* playerRef = nullptr; // pointer عشان تقدر تستخدم إما local أو external
 
-    bool muted = false;
-    bool looping = false;
-    float volume = 1.0f;
+    // Buttons
+    juce::TextButton loadButton{ "Load" };
+    juce::TextButton playButton{ "Play" };
+    juce::TextButton stopButton{ "Stop" };
+    juce::TextButton restartButton{ "Restart" };
+    juce::TextButton muteButton{ "Mute" };
+    juce::TextButton loopButton{ "Loop" };
+
+    // Sliders
+    juce::Slider volumeSlider;
+    juce::Slider speedSlider;
+    juce::Slider positionSlider;
+
+    // Labels
+    juce::Label volumeLabel{ "Volume", "Volume" };
+    juce::Label speedLabel{ "Speed", "Speed" };
+    juce::Label positionLabel{ "Position", "Position" };
+    juce::Label timeLabel;
+
+    void updateTimeLabel();
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGUI)
 };
-

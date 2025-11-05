@@ -8,8 +8,8 @@ class PlayerGUI : public juce::Component,
     public juce::Timer
 {
 public:
-    PlayerGUI(); // constructor عادي
-    PlayerGUI(PlayerAudio& externalPlayer); // constructor بياخد reference لو حبيت تستخدم player خارجي
+    PlayerGUI(PlayerAudio& extPlayer);
+    ~PlayerGUI() override = default;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -19,27 +19,34 @@ public:
     void timerCallback() override;
 
 private:
-    PlayerAudio localPlayer;       // لو مش هتستخدم external
-    PlayerAudio* playerRef = nullptr; // pointer عشان تقدر تستخدم إما local أو external
+    PlayerAudio* playerRef = nullptr;
 
-    // Buttons
+    // === Buttons ===
     juce::TextButton loadButton{ "Load" };
     juce::TextButton playButton{ "Play" };
     juce::TextButton stopButton{ "Stop" };
     juce::TextButton restartButton{ "Restart" };
-    juce::TextButton muteButton{ "Mute" };
     juce::TextButton loopButton{ "Loop" };
 
-    // Sliders
+    // === A-B Loop Buttons ===
+    juce::TextButton setAButton{ "Set A" };
+    juce::TextButton setBButton{ "Set B" };
+    juce::TextButton enableABButton{ "Enable A-B" };
+    juce::TextButton clearABButton{ "Clear A-B" };
+
+    // === Sliders ===
     juce::Slider volumeSlider;
     juce::Slider speedSlider;
     juce::Slider positionSlider;
 
-    // Labels
-    juce::Label volumeLabel{ "Volume", "Volume" };
-    juce::Label speedLabel{ "Speed", "Speed" };
-    juce::Label positionLabel{ "Position", "Position" };
+    // === Labels ===
     juce::Label timeLabel;
+
+    // === Waveform ===
+    juce::AudioFormatManager thumbnailFormatManager;
+    juce::AudioThumbnailCache thumbnailCache{ 5 };
+    juce::AudioThumbnail thumbnail{ 512, thumbnailFormatManager, thumbnailCache };
+    juce::File lastLoadedFile;
 
     void updateTimeLabel();
 

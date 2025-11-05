@@ -1,177 +1,199 @@
 #include "PlayerGUI.h"
 
-PlayerGUI::PlayerGUI()
+PlayerGUI::PlayerGUI(PlayerAudio& extPlayer)
 {
-    playerRef = &localPlayer;
-    startTimerHz(10);
+    playerRef = &extPlayer;
 
-    addAndMakeVisible(loadButton);
-    addAndMakeVisible(playButton);
-    addAndMakeVisible(stopButton);
-    addAndMakeVisible(restartButton);
-    addAndMakeVisible(muteButton);
-    addAndMakeVisible(loopButton);
+    // prepare thumbnail format manager
+    thumbnailFormatManager.registerBasicFormats();
 
-    loadButton.addListener(this);
-    playButton.addListener(this);
-    stopButton.addListener(this);
-    restartButton.addListener(this);
-    muteButton.addListener(this);
-    loopButton.addListener(this);
+    // === Buttons ===
+    addAndMakeVisible(loadButton); loadButton.addListener(this);
+    addAndMakeVisible(playButton); playButton.addListener(this);
+    addAndMakeVisible(stopButton); stopButton.addListener(this);
+    addAndMakeVisible(restartButton); restartButton.addListener(this);
+    addAndMakeVisible(loopButton); loopButton.addListener(this);
 
+    addAndMakeVisible(setAButton); setAButton.addListener(this);
+    addAndMakeVisible(setBButton); setBButton.addListener(this);
+    addAndMakeVisible(enableABButton); enableABButton.addListener(this);
+    addAndMakeVisible(clearABButton); clearABButton.addListener(this);
+
+    // === Sliders ===
     addAndMakeVisible(volumeSlider);
-    addAndMakeVisible(speedSlider);
-    addAndMakeVisible(positionSlider);
-
-    volumeSlider.setRange(0.0, 1.0);
-    volumeSlider.setValue(0.5);
+    volumeSlider.setRange(0.0, 1.0, 0.01);
+    volumeSlider.setValue(0.8);
     volumeSlider.addListener(this);
 
-    speedSlider.setRange(0.5, 2.0);
+    addAndMakeVisible(speedSlider);
+    speedSlider.setRange(0.5, 2.0, 0.01);
     speedSlider.setValue(1.0);
     speedSlider.addListener(this);
 
-    positionSlider.setRange(0.0, 1.0);
-    positionSlider.addListener(this);
-
-    addAndMakeVisible(volumeLabel);
-    addAndMakeVisible(speedLabel);
-    addAndMakeVisible(positionLabel);
-    addAndMakeVisible(timeLabel);
-
-    timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
-}
-
-PlayerGUI::PlayerGUI(PlayerAudio& externalPlayer)
-    : playerRef(&externalPlayer)
-{
-    startTimerHz(10);
-    // نفس إعدادات الـ constructor فوق
-    addAndMakeVisible(loadButton);
-    addAndMakeVisible(playButton);
-    addAndMakeVisible(stopButton);
-    addAndMakeVisible(restartButton);
-    addAndMakeVisible(muteButton);
-    addAndMakeVisible(loopButton);
-
-    loadButton.addListener(this);
-    playButton.addListener(this);
-    stopButton.addListener(this);
-    restartButton.addListener(this);
-    muteButton.addListener(this);
-    loopButton.addListener(this);
-
-    addAndMakeVisible(volumeSlider);
-    addAndMakeVisible(speedSlider);
     addAndMakeVisible(positionSlider);
-
-    volumeSlider.setRange(0.0, 1.0);
-    volumeSlider.setValue(0.5);
-    volumeSlider.addListener(this);
-
-    speedSlider.setRange(0.5, 2.0);
-    speedSlider.setValue(1.0);
-    speedSlider.addListener(this);
-
-    positionSlider.setRange(0.0, 1.0);
+    positionSlider.setRange(0.0, 1.0, 0.001);
     positionSlider.addListener(this);
 
-    addAndMakeVisible(volumeLabel);
-    addAndMakeVisible(speedLabel);
-    addAndMakeVisible(positionLabel);
+    // === Label ===
     addAndMakeVisible(timeLabel);
-
     timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
+    timeLabel.setJustificationType(juce::Justification::centredLeft);
+
+    // start timer to update UI and waveform playhead
+    startTimerHz(30);
 }
 
 void PlayerGUI::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
+    g.fillAll(juce::Colours::darkslategrey);
+
+    // draw waveform area background
+    auto area = getLocalBounds().reduced(10);
+    auto waveformHeight = 120;
+    juce::Rectangle<int> waveformArea = area.removeFromTop(waveformHeight).reduced(4);
+
+    g.setColour(juce::Colours::black);
+    g.fillRect(waveformArea);
+
+    // draw thumbnail waveform if available
+    if (thumbnail.getNumChannels() > 0)
+    {
+        g.setColour(juce::Colours::lightgrey);
+        thumbnail.drawChannels(g, waveformArea, 0.0, thumbnail.getTotalLength(), 1.0f);
+
+        // draw playhead (current position)
+        double posRel = 0.0;
+        if (playerRef != nullptr)
+            posRel = playerRef->getPositionRelative();
+
+        int x = waveformArea.getX() + (int)(posRel * (double)waveformArea.getWidth());
+        g.setColour(juce::Colours::red);
+        g.drawLine((float)x, (float)waveformArea.getY(), (float)x, (float)waveformArea.getBottom(), 2.0f);
+    }
+    else
+    {
+        g.setColour(juce::Colours::grey);
+        g.drawText("No waveform loaded", waveformArea, juce::Justification::centred);
+    }
+
+    // small separator line
+    g.setColour(juce::Colours::darkgrey.brighter());
+    g.drawLine((float)waveformArea.getX(), (float)waveformArea.getBottom() + 2,
+        (float)waveformArea.getRight(), (float)waveformArea.getBottom() + 2, 1.0f);
 }
 
 void PlayerGUI::resized()
 {
     auto area = getLocalBounds().reduced(10);
-    auto buttonHeight = 30;
 
-    loadButton.setBounds(area.removeFromTop(buttonHeight));
-    playButton.setBounds(area.removeFromTop(buttonHeight));
-    stopButton.setBounds(area.removeFromTop(buttonHeight));
-    restartButton.setBounds(area.removeFromTop(buttonHeight));
-    muteButton.setBounds(area.removeFromTop(buttonHeight));
-    loopButton.setBounds(area.removeFromTop(buttonHeight));
+    // waveform area height (paint uses same)
+    auto waveformHeight = 120;
+    auto waveformArea = area.removeFromTop(waveformHeight);
 
-    area.removeFromTop(10);
-    volumeLabel.setBounds(area.removeFromTop(20));
-    volumeSlider.setBounds(area.removeFromTop(30));
+    // below waveform, layout controls
+    auto h = 30;
+    auto row = area.removeFromTop(h);
+    loadButton.setBounds(row.removeFromLeft(120).reduced(2));
+    playButton.setBounds(row.removeFromLeft(80).reduced(2));
+    stopButton.setBounds(row.removeFromLeft(80).reduced(2));
+    restartButton.setBounds(row.removeFromLeft(80).reduced(2));
+    loopButton.setBounds(row.removeFromLeft(80).reduced(2));
 
-    area.removeFromTop(10);
-    speedLabel.setBounds(area.removeFromTop(20));
-    speedSlider.setBounds(area.removeFromTop(30));
+    auto row2 = area.removeFromTop(h);
+    setAButton.setBounds(row2.removeFromLeft(80).reduced(2));
+    setBButton.setBounds(row2.removeFromLeft(80).reduced(2));
+    enableABButton.setBounds(row2.removeFromLeft(120).reduced(2));
+    clearABButton.setBounds(row2.removeFromLeft(120).reduced(2));
 
-    area.removeFromTop(10);
-    positionLabel.setBounds(area.removeFromTop(20));
-    positionSlider.setBounds(area.removeFromTop(30));
-
-    area.removeFromTop(10);
-    timeLabel.setBounds(area.removeFromTop(30));
+    volumeSlider.setBounds(area.removeFromTop(h).reduced(2));
+    speedSlider.setBounds(area.removeFromTop(h).reduced(2));
+    positionSlider.setBounds(area.removeFromTop(h).reduced(2));
+    timeLabel.setBounds(area.removeFromTop(h).reduced(2));
 }
 
 void PlayerGUI::buttonClicked(juce::Button* button)
 {
-    auto& player = *playerRef;
+    if (playerRef == nullptr) return;
 
     if (button == &loadButton)
     {
-        juce::FileChooser chooser("Select an audio file...", {}, "*.mp3;*.wav");
-        chooser.launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-            [this](const juce::FileChooser& fc)
+        // modern async chooser; capture shared_ptr to keep alive during async
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Select an audio file...", juce::File(), "*.wav;*.mp3;*.aiff;*.flac");
+
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc)
             {
                 auto file = fc.getResult();
-                if (file.existsAsFile())
-                    playerRef->loadFile(file);
+                if (file.existsAsFile() && playerRef != nullptr)
+                {
+                    // load into player
+                    playerRef->loadAudioFile(file);
+
+                    // set thumbnail source so waveform is displayed
+                    lastLoadedFile = file;
+                    thumbnail.clear();
+                    thumbnail.setSource(new juce::FileInputSource(file));
+                }
             });
     }
-    else if (button == &playButton)
-        player.start();
-    else if (button == &stopButton)
-        player.stop();
-    else if (button == &restartButton)
-        player.restart();
-    else if (button == &muteButton)
-        player.toggleMute();
-    else if (button == &loopButton)
-        player.toggleLoop();
+    else if (button == &playButton) playerRef->play();
+    else if (button == &stopButton) playerRef->stop();
+    else if (button == &restartButton) playerRef->restart();
+    else if (button == &loopButton) playerRef->toggleLoop();
+
+    else if (button == &setAButton) playerRef->setAB_A();
+    else if (button == &setBButton) playerRef->setAB_B();
+    else if (button == &enableABButton) playerRef->enableABLoop();
+    else if (button == &clearABButton) playerRef->clearABLoop();
 }
 
 void PlayerGUI::sliderValueChanged(juce::Slider* slider)
 {
-    auto& player = *playerRef;
+    if (playerRef == nullptr) return;
 
     if (slider == &volumeSlider)
-        player.setVolume((float)slider->getValue());
+        playerRef->setGain((float)volumeSlider.getValue());
     else if (slider == &speedSlider)
-        player.setSpeed((float)slider->getValue());
+        playerRef->setSpeed((float)speedSlider.getValue());
     else if (slider == &positionSlider)
-        player.setPositionRelative((float)slider->getValue());
+        playerRef->setPositionRelative((float)positionSlider.getValue());
 }
 
 void PlayerGUI::timerCallback()
 {
+    if (playerRef == nullptr) return;
+
+    // update position slider (without notification to avoid feedback)
+    positionSlider.setValue(playerRef->getPositionRelative(), juce::dontSendNotification);
+
+    // update time label
     updateTimeLabel();
+
+    // repaint so waveform playhead updates smoothly
+    repaint();
 }
 
 void PlayerGUI::updateTimeLabel()
 {
-    auto& player = *playerRef;
-    double pos = player.getPosition();
-    double len = player.getLength();
+    if (playerRef == nullptr) return;
 
-    if (len > 0)
+    double pos = playerRef->getCurrentTime();
+    double len = playerRef->getTotalTime();
+
+    if (len <= 0.0)
     {
-        juce::String posStr = juce::String((int)(pos / 60)).paddedLeft('0', 2) + ":" + juce::String((int)pos % 60).paddedLeft('0', 2);
-        juce::String lenStr = juce::String((int)(len / 60)).paddedLeft('0', 2) + ":" + juce::String((int)len % 60).paddedLeft('0', 2);
-        timeLabel.setText(posStr + " / " + lenStr, juce::dontSendNotification);
+        timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
+        return;
     }
-}
 
+    int posMin = static_cast<int>(pos) / 60;
+    int posSec = static_cast<int>(pos) % 60;
+    int lenMin = static_cast<int>(len) / 60;
+    int lenSec = static_cast<int>(len) % 60;
+
+    juce::String p = juce::String(posMin).paddedLeft('0', 2) + ":" + juce::String(posSec).paddedLeft('0', 2);
+    juce::String l = juce::String(lenMin).paddedLeft('0', 2) + ":" + juce::String(lenSec).paddedLeft('0', 2);
+
+    timeLabel.setText(p + " / " + l, juce::dontSendNotification);
+}

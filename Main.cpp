@@ -3,8 +3,8 @@ Student : عبد الرحمن سيد محمود عبد العزيز
 ID : 20242203
 Section : S25
 
-Documentation Link :
-Video Demo Link :
+Documentation Link :https://1drv.ms/w/c/2ced87a452e9403c/ETxA6VKkh-0ggCzMAAAAAAAB3u_jWyC8rXzj613ML9YtxQ?e=VOeVi8
+Video Demo Link :https://youtu.be/h4keucRt9uM
 Repositories Link :https://github.com/abdosayedha/OOP_Assignment__2
 */
 
